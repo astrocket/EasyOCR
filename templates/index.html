@@ -32,7 +32,7 @@
             <div class="jumbotron mt-3">
                  <!-- Proejct Title -->
                  
-                <h1>EasyOCR</h1>
+                <h1>EasyOCR<p style="font-size:medium;">(ver 1.1.5)</p></h1>
                 <!-- Github link and Ainize link -->
                 <A>Git Hub repository : </A> <A href="https://github.com/Wook-2/EasyOCR">https://github.com/Wook-2/EasyOCR</A>
                 <br>
@@ -89,7 +89,7 @@
                     {% if result %}
                     <img src="data:image/jpg;base64,{{ rawimg|safe }}" style="height: 200px;">
                     {% else %}
-                    <img id="myimage" alt="image not uploaded" style="height:200px;">
+                    <img id="myimage" alt="image not uploaded yet" style="height:200px;">
                     
                     {% endif %}
                     <h2>Extracted words</h2>
