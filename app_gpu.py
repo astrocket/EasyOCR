@@ -158,7 +158,8 @@ def checkHealth():
 
 @app.errorhandler(413)
 def request_entity_too_large(error):
-    return {'error': 'File Too Large'}, 413
+    # return {'error': 'File Too Large'}, 413
+    return render_template('index.html', result = 'Too Large file'), 413
 
 if __name__ == '__main__':
     app.run(debug=False, port=8000, host='0.0.0.0')

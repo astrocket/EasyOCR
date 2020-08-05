@@ -14,10 +14,13 @@
         <title>EasyOCR</title>    
     </head>
     <script>
+        function click_submit(event){
+            document.getElementById("submit_btn").disabled = true;
+        }
         function onFileSelected(event){
             var selectedFile = event.target.files[0];
             var reader = new FileReader();
-
+            
             var imgtag = document.getElementById("myimage");
             imgtag.title = selectedFile.name;
 
@@ -25,6 +28,7 @@
                 imgtag.src = event.target.result;
             };
             reader.readAsDataURL(selectedFile);
+            document.getElementById("submit_btn").disabled = false;
         }
     </script>
     <body>
@@ -56,7 +60,7 @@
                                  <option value="af">Latin</option>
                                </select>
                                
-                               <input class="btn btn-primary btn-lg" style="margin-left: auto;" type=submit value=Upload>
+                               <input id="submit_btn"class="btn btn-primary btn-lg" style="margin-left: auto;" type=submit value=Upload onclick="click_submit()">
                         
                           </form>
                         <!-- <label for="label1">label1 : </label>
