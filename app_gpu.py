@@ -78,6 +78,11 @@ def upload_file():
         lang = str(request.form['lang'])
         file = request.files['file']
 
+        try:
+            PIL.Image.open(file).convert("RGB")
+        except Exception: 
+            return render_template('index.html', result = 'Import image please'), 400
+
         if file.filename == '':
             print('no filename')
             return redirect(request.url)
@@ -85,7 +90,7 @@ def upload_file():
 
         # stateless image
         if requests_queue.qsize() >= BATCH_SIZE:
-            return render_template('index.html', result = 'TooMany requests try agin'), 429
+            return render_template('index.html', result = 'TooMany requests try again'), 429
 
         req = {
             'input': [file, lang]
