@@ -14,7 +14,7 @@
         <title>EasyOCR</title>    
     </head>
     <script>
-        function click_submit(event){
+        function click_submit(){
             document.getElementById("submit_btn").disabled = true;
         }
         function onFileSelected(event){
@@ -48,7 +48,7 @@
                     
                     <div id = 'inputImage' style="float:left;width: 50%;">
                         <h2>Upload </h2>
-                        <form action="" method="post" enctype="multipart/form-data">
+                        <form action="" method="post" enctype="multipart/form-data" onsubmit="click_submit()">
                             <p>Import Image:<br><input type=file onchange="onFileSelected(event)" name=file </p>
                                <br><br>Choose Language:<br>
                                <select name="lang">
@@ -60,7 +60,7 @@
                                  <option value="af">Latin</option>
                                </select>
                                
-                               <input id="submit_btn"class="btn btn-primary btn-lg" style="margin-left: auto;" type=submit value=Upload onclick="click_submit()">
+                               <input id="submit_btn"class="btn btn-primary btn-lg" style="margin-left: auto;" type=submit value=Upload>
                         
                           </form>
                         <!-- <label for="label1">label1 : </label>

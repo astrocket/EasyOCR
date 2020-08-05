@@ -19,7 +19,7 @@ UPLOAD_FOLDER = 'static/uploads'
 
 app = Flask(__name__, template_folder='templates')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 8
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024
 
 ############
 requests_queue = Queue()
@@ -159,7 +159,7 @@ def checkHealth():
 @app.errorhandler(413)
 def request_entity_too_large(error):
     # return {'error': 'File Too Large'}, 413
-    return render_template('index.html', result = 'Too Large file'), 413
+    return render_template('index.html', result = 'The image size is too large'), 413
 
 if __name__ == '__main__':
     app.run(debug=False, port=8000, host='0.0.0.0')
