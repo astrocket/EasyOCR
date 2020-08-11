@@ -118,44 +118,32 @@ def upload_file():
 # Start Swagger API Server
 @app.route('/word_extraction', methods=['POST'])
 def word_extraction():
-
-    #if not request.args.get('language'):
-    #    return {'error': 'must select language'}, 400
-
     if not request.files.get('base_image'):
         return {'error': 'must have a base image'}, 400
 
-    try:
-        base_image = Image.open(request.files['base_image'].stream)
-        base_image.save("img.png")
-        base_image = Image.open("img.png")
-
-        if base_image.format not in ['JPG', 'JPEG', 'PNG']:
-            return {'error': 'image must be jpg, jpeg or png'}, 400
-
-
-    except Exception:
-        return {'error': 'can not load your image files. check your image files'}, 400
-
-
     target_language = str(request.form['language'])
-    if target_language != 'latin':
-        reader = easyocr.Reader([target_language, 'en'])
-    else:
-        reader = easyocr.Reader(['af', 'en'])
+    file = request.files['base_image']
 
+    try:
+        PIL.Image.open(file).convert("RGB")
+        # base_image = Image.open(request.files['base_image'].stream)
+        # base_image.save("img.png")
+        # base_image = Image.open("img.png")
+    except Exception:
+        return {'error': 'please upload image file.'}, 400
 
-    # base_img = send_file("img.png", mimetype='image/png')
-    imgFile = cv2.imread('img.png', cv2.IMREAD_COLOR)
-    # reader = easyocr.Reader(['ko', 'en'], gpu=False)
-    ResultText = reader.readtext(imgFile)
-    Result = list()
+    if requests_queue.qsize() >= BATCH_SIZE:
+        return {'error': 'TooMany requests try again'}, 429
+    
+    req = {
+        'input': [file, target_language]
+    }
+    requests_queue.put(req)
 
-    for i in ResultText:
-        Result.append(i[1])
-    return str(Result)
-    # return str(Result)
-
+    while 'output' not in req:
+        time.sleep(CHECK_INTERVAL)
+    [res, img] = req['output']
+    return str(res)
 
 @app.route('/healthz', methods=['GET'])
 def checkHealth():
