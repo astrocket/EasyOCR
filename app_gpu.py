@@ -19,7 +19,7 @@ UPLOAD_FOLDER = 'static/uploads'
 
 app = Flask(__name__, template_folder='templates')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024*5
 
 ############
 requests_queue = Queue()
@@ -49,9 +49,14 @@ def run(file, lang):
         
     reader = easyocr.Reader([lang, 'en'])
     text = reader.readtext(imgFile)
-    res = list()
+    res_list = list()
     for i in text:
-        res.append(i[1])
+        res_list.append(i[1])
+    
+    res_str = ''
+
+    for i in res_list:
+        res_str = res_str + ' ' + i 
 
     #image show
     imgFile = PIL.Image.fromarray(imgFile)
@@ -62,7 +67,7 @@ def run(file, lang):
     img = base64.b64encode(img_io.getvalue())
     
 
-    return [res, img]
+    return [res_str, img]
 
 ##############
 
