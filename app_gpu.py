@@ -82,6 +82,11 @@ def upload_file():
             return redirect(request.url)
         lang = str(request.form['lang'])
         file = request.files['file']
+        
+        if lang in ['ko', 'ja', 'th', 'ch_tra', 'ch_sim', 'af']:
+            pass
+        else:
+            return render_template('index.html', result = 'Import valid language.'), 400 
 
         try:
             PIL.Image.open(file).convert("RGB")
