@@ -115,11 +115,6 @@ def upload_file():
     return render_template('index.html')
 
 
-
-
-
-
-
 # Start Swagger API Server
 @app.route('/word_extraction', methods=['POST'])
 def word_extraction():
