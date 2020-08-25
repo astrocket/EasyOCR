@@ -46,8 +46,10 @@ threading.Thread(target=handle_requests_by_batch).start()
 def run(file, lang):
     
     imgFile = np.array(PIL.Image.open(file).convert("RGB"))
-        
-    reader = easyocr.Reader([lang, 'en'])
+    if lang == 'eng':
+        reader = easyocr.Reader(['en'])
+    else:
+        reader = easyocr.Reader([lang, 'en'])
     text = reader.readtext(imgFile)
     res_list = list()
     for i in text:
@@ -83,7 +85,7 @@ def upload_file():
         lang = str(request.form['lang'])
         file = request.files['file']
         
-        if lang in ['ko', 'ja', 'th', 'ch_tra', 'ch_sim', 'af']:
+        if lang in ['ko', 'ja', 'th', 'ch_tra', 'ch_sim', 'af', 'eng']:
             pass
         else:
             return render_template('index.html', result = 'Import valid language.'), 400 
