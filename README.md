@@ -10,7 +10,6 @@ Ready-to-use OCR with 40+ languages supported including Chinese, Japanese, Korea
 ## Ainize
 ### You can experience easyOCR by one click!
 [![Run on Ainize](https://ainize.ai/static/images/run_on_ainize_button.svg)](https://ainize.web.app/redirect?git_repo=https://github.com/Wook-2/EasyOCR)
-### OR [in WEBPAGE](https://easyocrgpu-wook-2.endpoint.ainize.ai/)
 
 ## What's new?
 - 24 July 2020 - Version 1.1.5
