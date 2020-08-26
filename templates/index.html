@@ -43,9 +43,6 @@
                 <A>Testing API : </A> <A href="https://ainize.ai/wook-2/easyocrgpu"> on Ainize </A>
                 <hr class="solid">
                 
-                
-            
-                    
                     <div id = 'inputImage' style="float:left;width: 50%;">
                         <h2>Upload </h2>
                         <form action="" method="post" enctype="multipart/form-data" onsubmit="click_submit()">
@@ -60,20 +57,11 @@
                                 <option value="ch_sim">Simplified Chinese</option>
                                 <option value="af">Latin</option>
                                </select>
-                               
+
                                <input id="submit_btn"class="btn btn-primary btn-lg" style="margin-left: auto;" type=submit value=Upload>
-                        
                           </form>
-                        <!-- <label for="label1">label1 : </label>
-                        <input type = 'file' id = 'input1' style="margin-right: 10px; margin-bottom: 10px;">
-                        <label for="label2">label2: </label>
-                        <input type = 'file' id = 'input2' style="margin-right: 10px; margin-bottom: 10px;">
-                        <button id = "submit" type='submit' class="btn btn-primary btn-lg" style="margin-left: auto;"> submit </button> -->
-                    
-                    
                     </div>
 
-                    
                 <div style="float:left;width: 50%;">
                 <h2>Download sample image</h2>
                 [For English model] : <a href="/static/images/test_en.png" target="blank"><button class='btn btn-default'>->Download<-</button></a><br>
@@ -83,16 +71,8 @@
                 [For Chinese model] : <a href="/static/images/test_ch.png" target='blank'><button class='btn btn-default'>->Download<-</button></a><br>
                 [For Latin model] : <a href="/static/images/test_latin.jpg" target='blank'><button class='btn btn-default'>->Download<-</button></a><br>
                 </div>
-                
-                
 
-                <!-- If your project have a input files -->
-                
-                
                 <!-- Result Box -->
-                <!-- <div id ='resultBox' style="margin-left: auto; margin-right: auto;"> -->
-                    
-
                     {% if result %}
                     <img src="data:image/jpg;base64,{{ rawimg|safe }}" style="height: 200px;">
                     {% else %}
@@ -102,8 +82,6 @@
                     <h2>Extracted words</h2>
                     <h2>: {{ result }}</h2>
                     <br><br>
-                    
-                <!-- </div> -->
             </div>
         </div>
         <div id="badge" OnClick="location.href='https://join.slack.com/t/ainetwork-dev/shared_invite/zt-c89mb8z9-IqaCsNmsNLXKNylKXrJTTg'"
