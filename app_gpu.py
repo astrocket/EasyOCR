@@ -119,6 +119,9 @@ def word_extraction():
 
     target_language = str(request.form['language'])
     file = request.files['base_image']
+    
+    if target_language not in ['ko', 'ja', 'th', 'ch_tra', 'ch_sim', 'af', 'eng']:
+	return {'error': f'please check language. {target_language} is not supported.'}
 
     try:
         PIL.Image.open(file).convert("RGB")
