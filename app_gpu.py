@@ -42,32 +42,35 @@ threading.Thread(target=handle_requests_by_batch).start()
 
 
 def run(file, lang):
-    imgFile = np.array(PIL.Image.open(file).convert("RGB"))
+    try:
+        imgFile = np.array(PIL.Image.open(file).convert("RGB"))
 
-    if lang == 'eng':
-        reader = easyocr.Reader(['en'])
-    else:
-        reader = easyocr.Reader([lang, 'en'])
+        if lang == 'eng':
+            reader = easyocr.Reader(['en'])
+        else:
+            reader = easyocr.Reader([lang, 'en'])
 
-    text = reader.readtext(imgFile)
-    res_list = list()
+        text = reader.readtext(imgFile)
+        res_list = list()
 
-    for i in text:
-        res_list.append(i[1])
-    
-    res_str = ''
+        for i in text:
+            res_list.append(i[1])
+        
+        res_str = ''
 
-    for i in res_list:
-        res_str = res_str + ' ' + i 
+        for i in res_list:
+            res_str = res_str + ' ' + i 
 
-    imgFile = PIL.Image.fromarray(imgFile)
-    img_io = io.BytesIO()
-    imgFile.save(img_io, 'jpeg', quality=100)
-    img_io.seek(0)
-    img = base64.b64encode(img_io.getvalue())
+        imgFile = PIL.Image.fromarray(imgFile)
+        img_io = io.BytesIO()
+        imgFile.save(img_io, 'jpeg', quality=100)
+        img_io.seek(0)
+        img = base64.b64encode(img_io.getvalue())
 
-    return [res_str, img]
-
+        return [res_str, img]
+    except Exception as e:
+        print("error : ",e)
+        return 500
 
 # Web server
 @app.route('/', methods=['GET', 'POST'])
@@ -106,6 +109,10 @@ def upload_file():
 
         while 'output' not in req:
             time.sleep(CHECK_INTERVAL)
+        
+        if req['output'] == 500:
+            return render_template('index.html', result = 'server error'), 500
+        
         [res, img] = req['output']
         return render_template('index.html', result=str(res), rawimg=img.decode('ascii'))
     return render_template('index.html')
@@ -138,6 +145,8 @@ def word_extraction():
 
     while 'output' not in req:
         time.sleep(CHECK_INTERVAL)
+    if req['output'] == 500:
+        return {'error': 'server error'}, 500
     [res, img] = req['output']
     return str(res)
 
