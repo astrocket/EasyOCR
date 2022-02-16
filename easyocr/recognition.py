@@ -6,10 +6,12 @@ import torch.nn.functional as F
 import torchvision.transforms as transforms
 import numpy as np
 from collections import OrderedDict
-
-from .model import Model
+import importlib
 from .utils import CTCLabelConverter
 import math
+
+def custom_mean(x):
+    return x.prod()**(2.0/np.sqrt(len(x)))
 
 def contrast_grey(img):
     high = np.percentile(img, 90)
@@ -55,7 +57,6 @@ class ListDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         img = self.image_list[index]
-
         return Image.fromarray(img, 'L')
 
 class AlignCollate(object):
@@ -124,8 +125,7 @@ def recognizer_predict(model, converter, test_loader, batch_max_length,\
                 # Select max probabilty (greedy decoding) then decode index to character
                 _, preds_index = preds_prob.max(2)
                 preds_index = preds_index.view(-1)
-                preds_index = preds_index.view(-1)
-                preds_str = converter.decode_greedy(preds_index.data, preds_size.data)
+                preds_str = converter.decode_greedy(preds_index.data.cpu().detach().numpy(), preds_size.data)
             elif decoder == 'beamsearch':
                 k = preds_prob.cpu().detach().numpy()
                 preds_str = converter.decode_beamsearch(k, beamWidth=beamWidth)
@@ -133,20 +133,37 @@ def recognizer_predict(model, converter, test_loader, batch_max_length,\
                 k = preds_prob.cpu().detach().numpy()
                 preds_str = converter.decode_wordbeamsearch(k, beamWidth=beamWidth)
 
-            preds_max_prob, _ = preds_prob.max(dim=2)
+            preds_prob = preds_prob.cpu().detach().numpy()
+            values = preds_prob.max(axis=2)
+            indices = preds_prob.argmax(axis=2)
+            preds_max_prob = []
+            for v,i in zip(values, indices):
+                max_probs = v[i!=0]
+                if len(max_probs)>0:
+                    preds_max_prob.append(max_probs)
+                else:
+                    preds_max_prob.append(np.array([0]))
 
             for pred, pred_max_prob in zip(preds_str, preds_max_prob):
-                confidence_score = pred_max_prob.cumprod(dim=0)[-1]
-                result.append([pred, confidence_score.item()])
+                confidence_score = custom_mean(pred_max_prob)
+                result.append([pred, confidence_score])
 
     return result
 
-def get_recognizer(input_channel, output_channel, hidden_size, character,\
-                   separator_list, dict_list, model_path, device = 'cpu'):
+def get_recognizer(recog_network, network_params, character,\
+                   separator_list, dict_list, model_path,\
+                   device = 'cpu', quantize = True):
 
     converter = CTCLabelConverter(character, separator_list, dict_list)
     num_class = len(converter.character)
-    model = Model(input_channel, output_channel, hidden_size, num_class)
+
+    if recog_network == 'generation1':
+        model_pkg = importlib.import_module("easyocr.model.model")
+    elif recog_network == 'generation2':
+        model_pkg = importlib.import_module("easyocr.model.vgg_model")
+    else:
+        model_pkg = importlib.import_module(recog_network)
+    model = model_pkg.Model(num_class=num_class, **network_params)
 
     if device == 'cpu':
         state_dict = torch.load(model_path, map_location=device)
@@ -155,6 +172,11 @@ def get_recognizer(input_channel, output_channel, hidden_size, character,\
             new_key = key[7:]
             new_state_dict[new_key] = value
         model.load_state_dict(new_state_dict)
+        if quantize:
+            try:
+                torch.quantization.quantize_dynamic(model, dtype=torch.qint8, inplace=True)
+            except:
+                pass
     else:
         model = torch.nn.DataParallel(model).to(device)
         model.load_state_dict(torch.load(model_path, map_location=device))
@@ -207,11 +229,5 @@ def get_text(character, imgH, imgW, recognizer, converter, image_list,\
                 result.append( (box, pred2[0], pred2[1]) )
         else:
             result.append( (box, pred1[0], pred1[1]) )
-
-    #confidence_score = pred_max_prob.cumprod(dim=0)[-1]
-    #if confidence_score.item() > filter_ths:
-    #    print(pred, confidence_score.item())
-    #else:
-    #    print('not sure', pred, confidence_score.item())
 
     return result

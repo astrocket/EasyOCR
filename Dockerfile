@@ -1,5 +1,5 @@
 FROM wookbyung/easyocrmodel AS build
-FROM pytorch/pytorch:1.4-cuda10.1-cudnn7-devel
+FROM pytorch/pytorch
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \

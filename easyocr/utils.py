@@ -5,9 +5,17 @@ import pickle
 import numpy as np
 import math
 import cv2
-from PIL import Image
+from PIL import Image, JpegImagePlugin
+from scipy import ndimage
 import hashlib
-import sys
+import sys, os
+from zipfile import ZipFile
+from .imgproc import loadImage
+
+if sys.version_info[0] == 2:
+    from six.moves.urllib.request import urlretrieve
+else:
+    from urllib.request import urlretrieve
 
 def consecutive(data, mode ='first', stepsize=1):
     group = np.split(data, np.where(np.diff(data) != stepsize)[0]+1)
@@ -58,6 +66,7 @@ class BeamEntry:
         self.prText = 1 # LM score
         self.lmApplied = False # flag if LM was already applied to this beam
         self.labeling = () # beam-labeling
+        self.simplified = True  # To run simplyfiy label
 
 class BeamState:
     "information about the beams at specific time-step"
@@ -125,6 +134,45 @@ def simplify_label(labeling, blankIdx = 0):
 
     return tuple(labeling)
 
+def fast_simplify_label(labeling, c, blankIdx=0):
+
+    # Adding BlankIDX after Non-Blank IDX
+    if labeling and c == blankIdx and labeling[-1] != blankIdx:
+        newLabeling = labeling + (c,)
+
+    # Case when a nonBlankChar is added after BlankChar |len(char) - 1
+    elif labeling and c != blankIdx and labeling[-1] == blankIdx:
+
+        # If Blank between same character do nothing | As done by Simplify label
+        if labeling[-2] == c:
+            newLabeling = labeling + (c,)
+
+        # if blank between different character, remove it | As done by Simplify Label
+        else:
+            newLabeling = labeling[:-1] + (c,)
+
+    # if consecutive blanks : Keep the original label
+    elif labeling and c == blankIdx and labeling[-1] == blankIdx:
+        newLabeling = labeling
+
+    # if empty beam & first index is blank
+    elif not labeling and c == blankIdx:
+        newLabeling = labeling
+
+    # if empty beam & first index is non-blank
+    elif not labeling and c != blankIdx:
+        newLabeling = labeling + (c,)
+
+    elif labeling and c != blankIdx:
+        newLabeling = labeling + (c,)
+
+    # Cases that might still require simplyfying
+    else:
+        newLabeling = labeling + (c,)
+        newLabeling = simplify_label(newLabeling, blankIdx)
+
+    return newLabeling
+
 def addBeam(beamState, labeling):
     "add beam if it does not yet exist"
     if labeling not in beamState.entries:
@@ -159,7 +207,11 @@ def ctcBeamSearch(mat, classes, ignore_idx, lm, beamWidth=25, dict_list = []):
             prBlank = (last.entries[labeling].prTotal) * mat[t, blankIdx]
 
             # add beam at current time-step if needed
-            labeling = simplify_label(labeling, blankIdx)
+            prev_labeling = labeling
+            if not last.entries[labeling].simplified:
+                labeling = simplify_label(labeling, blankIdx)
+
+            # labeling = simplify_label(labeling, blankIdx)
             addBeam(curr, labeling)
 
             # fill in data
@@ -167,7 +219,7 @@ def ctcBeamSearch(mat, classes, ignore_idx, lm, beamWidth=25, dict_list = []):
             curr.entries[labeling].prNonBlank += prNonBlank
             curr.entries[labeling].prBlank += prBlank
             curr.entries[labeling].prTotal += prBlank + prNonBlank
-            curr.entries[labeling].prText = last.entries[labeling].prText
+            curr.entries[labeling].prText = last.entries[prev_labeling].prText
             # beam-labeling not changed, therefore also LM score unchanged from
 
             #curr.entries[labeling].lmApplied = True # LM already applied at previous time-step for this beam-labeling
@@ -178,14 +230,15 @@ def ctcBeamSearch(mat, classes, ignore_idx, lm, beamWidth=25, dict_list = []):
             for c in char_highscore:
             #for c in range(maxC - 1):
                 # add new char to current beam-labeling
-                newLabeling = labeling + (c,)
-                newLabeling = simplify_label(newLabeling, blankIdx)
+                # newLabeling = labeling + (c,)
+                # newLabeling = simplify_label(newLabeling, blankIdx)
+                newLabeling = fast_simplify_label(labeling, c, blankIdx)
 
                 # if new labeling contains duplicate char at the end, only consider paths ending with a blank
                 if labeling and labeling[-1] == c:
-                    prNonBlank = mat[t, c] * last.entries[labeling].prBlank
+                    prNonBlank = mat[t, c] * last.entries[prev_labeling].prBlank
                 else:
-                    prNonBlank = mat[t, c] * last.entries[labeling].prTotal
+                    prNonBlank = mat[t, c] * last.entries[prev_labeling].prTotal
 
                 # add beam at current time-step if needed
                 addBeam(curr, newLabeling)
@@ -277,14 +330,14 @@ class CTCLabelConverter(object):
         index = 0
         for l in length:
             t = text_index[index:index + l]
-
-            char_list = []
-            for i in range(l):
-                # removing repeated characters and blank (and separator).
-                if t[i] not in self.ignore_idx and (not (i > 0 and t[i - 1] == t[i])):
-                    char_list.append(self.character[t[i]])
-            text = ''.join(char_list)
-
+            # Returns a boolean array where true is when the value is not repeated
+            a = np.insert(~((t[1:]==t[:-1])),0,True)
+            # Returns a boolean array where true is when the value is not in the ignore_idx list
+            b = ~np.isin(t,np.array(self.ignore_idx))
+            # Combine the two boolean array
+            c = a & b
+            # Gets the corresponding character according to the saved indexes
+            text = ''.join(np.array(self.character)[t[c.nonzero()]])
             texts.append(text)
             index += l
         return texts
@@ -352,7 +405,7 @@ def four_point_transform(image, rect):
 
     return warped
 
-def group_text_box(polys, slope_ths = 0.1, ycenter_ths = 0.5, height_ths = 0.5, width_ths = 1.0, add_margin = 0.05):
+def group_text_box(polys, slope_ths = 0.1, ycenter_ths = 0.5, height_ths = 0.5, width_ths = 1.0, add_margin = 0.05, sort_output = True):
     # poly top-left, top-right, low-right, low-left
     horizontal_list, free_list,combined_list, merged_list = [],[],[],[]
 
@@ -366,8 +419,10 @@ def group_text_box(polys, slope_ths = 0.1, ycenter_ths = 0.5, height_ths = 0.5, 
             y_min = min([poly[1],poly[3],poly[5],poly[7]])
             horizontal_list.append([x_min, x_max, y_min, y_max, 0.5*(y_min+y_max), y_max-y_min])
         else:
-            height = np.linalg.norm( [poly[6]-poly[0],poly[7]-poly[1]])
-            margin = int(1.44*add_margin*height)
+            height = np.linalg.norm([poly[6]-poly[0],poly[7]-poly[1]])
+            width = np.linalg.norm([poly[2]-poly[0],poly[3]-poly[1]])
+
+            margin = int(1.44*add_margin*min(width, height))
 
             theta13 = abs(np.arctan( (poly[1]-poly[5])/np.maximum(10, (poly[0]-poly[4]))))
             theta24 = abs(np.arctan( (poly[3]-poly[7])/np.maximum(10, (poly[2]-poly[6]))))
@@ -382,7 +437,8 @@ def group_text_box(polys, slope_ths = 0.1, ycenter_ths = 0.5, height_ths = 0.5, 
             y4 = poly[7] + np.sin(theta24)*margin
 
             free_list.append([[x1,y1],[x2,y2],[x3,y3],[x4,y4]])
-    horizontal_list = sorted(horizontal_list, key=lambda item: item[4])
+    if sort_output:
+        horizontal_list = sorted(horizontal_list, key=lambda item: item[4])
 
     # combine box
     new_box = []
@@ -394,7 +450,7 @@ def group_text_box(polys, slope_ths = 0.1, ycenter_ths = 0.5, height_ths = 0.5, 
             new_box.append(poly)
         else:
             # comparable height and comparable y_center level up to ths*height
-            if (abs(np.mean(b_height) - poly[5]) < height_ths*np.mean(b_height)) and (abs(np.mean(b_ycenter) - poly[4]) < ycenter_ths*np.mean(b_height)):
+            if abs(np.mean(b_ycenter) - poly[4]) < ycenter_ths*np.mean(b_height):
                 b_height.append(poly[5])
                 b_ycenter.append(poly[4])
                 new_box.append(poly)
@@ -409,7 +465,7 @@ def group_text_box(polys, slope_ths = 0.1, ycenter_ths = 0.5, height_ths = 0.5, 
     for boxes in combined_list:
         if len(boxes) == 1: # one box per line
             box = boxes[0]
-            margin = int(add_margin*box[5])
+            margin = int(add_margin*min(box[1]-box[0],box[5]))
             merged_list.append([box[0]-margin,box[1]+margin,box[2]-margin,box[3]+margin])
         else: # multiple boxes per line
             boxes = sorted(boxes, key=lambda item: item[0])
@@ -417,13 +473,16 @@ def group_text_box(polys, slope_ths = 0.1, ycenter_ths = 0.5, height_ths = 0.5, 
             merged_box, new_box = [],[]
             for box in boxes:
                 if len(new_box) == 0:
+                    b_height = [box[5]]
                     x_max = box[1]
                     new_box.append(box)
                 else:
-                    if abs(box[0]-x_max) < width_ths *(box[3]-box[2]): # merge boxes
+                    if (abs(np.mean(b_height) - box[5]) < height_ths*np.mean(b_height)) and ((box[0]-x_max) < width_ths *(box[3]-box[2])): # merge boxes
+                        b_height.append(box[5])
                         x_max = box[1]
                         new_box.append(box)
                     else:
+                        b_height = [box[5]]
                         x_max = box[1]
                         merged_box.append(new_box)
                         new_box = [box]
@@ -437,18 +496,46 @@ def group_text_box(polys, slope_ths = 0.1, ycenter_ths = 0.5, height_ths = 0.5, 
                     y_min = min(mbox, key=lambda x: x[2])[2]
                     y_max = max(mbox, key=lambda x: x[3])[3]
 
-                    margin = int(add_margin*(y_max - y_min))
+                    box_width = x_max - x_min
+                    box_height = y_max - y_min
+                    margin = int(add_margin * (min(box_width, box_height)))
 
                     merged_list.append([x_min-margin, x_max+margin, y_min-margin, y_max+margin])
                 else: # non adjacent box in same line
                     box = mbox[0]
 
-                    margin = int(add_margin*(box[3] - box[2]))
+                    box_width = box[1] - box[0]
+                    box_height = box[3] - box[2]
+                    margin = int(add_margin * (min(box_width, box_height)))
+
                     merged_list.append([box[0]-margin,box[1]+margin,box[2]-margin,box[3]+margin])
     # may need to check if box is really in image
     return merged_list, free_list
 
-def get_image_list(horizontal_list, free_list, img, model_height = 64):
+def calculate_ratio(width,height):
+    '''
+    Calculate aspect ratio for normal use case (w>h) and vertical text (h>w)
+    '''
+    ratio = width/height
+    if ratio<1.0:
+        ratio = 1./ratio
+    return ratio
+
+def compute_ratio_and_resize(img,width,height,model_height):
+    '''
+    Calculate ratio and resize correctly for both horizontal text
+    and vertical case
+    '''
+    ratio = width/height
+    if ratio<1.0:
+        ratio = calculate_ratio(width,height)
+        img = cv2.resize(img,(model_height,int(model_height*ratio)), interpolation=Image.ANTIALIAS)
+    else:
+        img = cv2.resize(img,(int(model_height*ratio),model_height),interpolation=Image.ANTIALIAS)
+    return img,ratio
+
+
+def get_image_list(horizontal_list, free_list, img, model_height = 64, sort_output = True):
     image_list = []
     maximum_y,maximum_x = img.shape
 
@@ -456,10 +543,15 @@ def get_image_list(horizontal_list, free_list, img, model_height = 64):
     for box in free_list:
         rect = np.array(box, dtype = "float32")
         transformed_img = four_point_transform(img, rect)
-        ratio = transformed_img.shape[1]/transformed_img.shape[0]
-        crop_img = cv2.resize(transformed_img, (int(model_height*ratio), model_height), interpolation =  Image.ANTIALIAS)
-        image_list.append( (box,crop_img) ) # box = [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
-        max_ratio_free = max(ratio, max_ratio_free)
+        ratio = calculate_ratio(transformed_img.shape[1],transformed_img.shape[0])
+        new_width = int(model_height*ratio)
+        if new_width == 0:
+            pass
+        else:
+            crop_img,ratio = compute_ratio_and_resize(transformed_img,transformed_img.shape[1],transformed_img.shape[0],model_height)
+            image_list.append( (box,crop_img) ) # box = [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
+            max_ratio_free = max(ratio, max_ratio_free)
+
 
     max_ratio_free = math.ceil(max_ratio_free)
 
@@ -471,17 +563,30 @@ def get_image_list(horizontal_list, free_list, img, model_height = 64):
         crop_img = img[y_min : y_max, x_min:x_max]
         width = x_max - x_min
         height = y_max - y_min
-        ratio = width/height
-        crop_img = cv2.resize(crop_img, (int(model_height*ratio), model_height), interpolation =  Image.ANTIALIAS)
-        image_list.append( ( [[x_min,y_min],[x_max,y_min],[x_max,y_max],[x_min,y_max]] ,crop_img) )
-        max_ratio_hori = max(ratio, max_ratio_hori)
+        ratio = calculate_ratio(width,height)
+        new_width = int(model_height*ratio)
+        if new_width == 0:
+            pass
+        else:
+            crop_img,ratio = compute_ratio_and_resize(crop_img,width,height,model_height)
+            image_list.append( ( [[x_min,y_min],[x_max,y_min],[x_max,y_max],[x_min,y_max]] ,crop_img) )
+            max_ratio_hori = max(ratio, max_ratio_hori)
 
     max_ratio_hori = math.ceil(max_ratio_hori)
     max_ratio = max(max_ratio_hori, max_ratio_free)
     max_width = math.ceil(max_ratio)*model_height
 
-    image_list = sorted(image_list, key=lambda item: item[0][0][1]) # sort by vertical position
+    if sort_output:
+        image_list = sorted(image_list, key=lambda item: item[0][0][1]) # sort by vertical position
     return image_list, max_width
+
+def download_and_unzip(url, filename, model_storage_directory, verbose=True):
+    zip_path = os.path.join(model_storage_directory, 'temp.zip')
+    reporthook = printProgressBar(prefix='Progress:', suffix='Complete', length=50) if verbose else None
+    urlretrieve(url, zip_path, reporthook=reporthook)
+    with ZipFile(zip_path, 'r') as zipObj:
+        zipObj.extract(filename, model_storage_directory)
+    os.remove(zip_path)
 
 def calculate_md5(fname):
     hash_md5 = hashlib.md5()
@@ -490,8 +595,8 @@ def calculate_md5(fname):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
-def eprint(str):
-    print(str, file=sys.stderr)
+def diff(input_list):
+    return max(input_list)-min(input_list)
 
 def get_paragraph(raw_result, x_ths=1, y_ths=0.5, mode = 'ltr'):
     # create basic attributes
@@ -550,9 +655,139 @@ def get_paragraph(raw_result, x_ths=1, y_ths=0.5, mode = 'ltr'):
                 most_left = min([box[1] for box in candidates])
                 for box in candidates:
                     if box[1] == most_left: best_box = box
+            elif mode == 'rtl':
+                most_right = max([box[2] for box in candidates])
+                for box in candidates:
+                    if box[2] == most_right: best_box = box
             text += ' '+best_box[0]
             current_box_group.remove(best_box)
 
         result.append([ [[min_gx,min_gy],[max_gx,min_gy],[max_gx,max_gy],[min_gx,max_gy]], text[1:]])
 
     return result
+
+
+def printProgressBar(prefix='', suffix='', decimals=1, length=100, fill='█'):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+    """
+    def progress_hook(count, blockSize, totalSize):
+        progress = count * blockSize / totalSize
+        percent = ("{0:." + str(decimals) + "f}").format(progress * 100)
+        filledLength = int(length * progress)
+        bar = fill * filledLength + '-' * (length - filledLength)
+        print(f'\r{prefix} |{bar}| {percent}% {suffix}', end='')
+
+    return progress_hook
+
+def reformat_input(image):
+    if type(image) == str:
+        if image.startswith('http://') or image.startswith('https://'):
+            tmp, _ = urlretrieve(image , reporthook=printProgressBar(prefix = 'Progress:', suffix = 'Complete', length = 50))
+            img_cv_grey = cv2.imread(tmp, cv2.IMREAD_GRAYSCALE)
+            os.remove(tmp)
+        else:
+            img_cv_grey = cv2.imread(image, cv2.IMREAD_GRAYSCALE)
+            image = os.path.expanduser(image)
+        img = loadImage(image)  # can accept URL
+    elif type(image) == bytes:
+        nparr = np.frombuffer(image, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img_cv_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    elif type(image) == np.ndarray:
+        if len(image.shape) == 2: # grayscale
+            img_cv_grey = image
+            img = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        elif len(image.shape) == 3 and image.shape[2] == 1:
+            img_cv_grey = np.squeeze(image)
+            img = cv2.cvtColor(img_cv_grey, cv2.COLOR_GRAY2BGR)
+        elif len(image.shape) == 3 and image.shape[2] == 3: # BGRscale
+            img = image
+            img_cv_grey = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        elif len(image.shape) == 3 and image.shape[2] == 4: # RGBAscale
+            img = image[:,:,:3]
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            img_cv_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    elif type(image) == JpegImagePlugin.JpegImageFile:
+        image_array = np.array(image)
+        img = cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
+        img_cv_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    else:
+        raise ValueError('Invalid input type. Supporting format = string(file path or url), bytes, numpy array')
+
+    return img, img_cv_grey
+
+
+def reformat_input_batched(image, n_width=None, n_height=None):
+    """
+    reformats an image or list of images or a 4D numpy image array &
+    returns a list of corresponding img, img_cv_grey nd.arrays
+    image:
+        [file path, numpy-array, byte stream object,
+        list of file paths, list of numpy-array, 4D numpy array,
+        list of byte stream objects]
+    """
+    if ((isinstance(image, np.ndarray) and len(image.shape) == 4) or isinstance(image, list)):
+        # process image batches if image is list of image np arr, paths, bytes
+        img, img_cv_grey = [], []
+        for single_img in image:
+            clr, gry = reformat_input(single_img)
+            if n_width is not None and n_height is not None:
+                clr = cv2.resize(clr, (n_width, n_height))
+                gry = cv2.resize(gry, (n_width, n_height))
+            img.append(clr)
+            img_cv_grey.append(gry)
+        img, img_cv_grey = np.array(img), np.array(img_cv_grey)
+        # ragged tensors created when all input imgs are not of the same size
+        if len(img.shape) == 1 and len(img_cv_grey.shape) == 1:
+            raise ValueError("The input image array contains images of different sizes. " +
+                             "Please resize all images to same shape or pass n_width, n_height to auto-resize")
+    else:
+        img, img_cv_grey = reformat_input(image)
+    return img, img_cv_grey
+
+
+
+def make_rotated_img_list(rotationInfo, img_list):
+
+    result_img_list = img_list[:]
+
+    # add rotated images to original image_list
+    max_ratio=1
+    
+    for angle in rotationInfo:
+        for img_info in img_list : 
+            rotated = ndimage.rotate(img_info[1], angle, reshape=True) 
+            height,width = rotated.shape
+            ratio = calculate_ratio(width,height)
+            max_ratio = max(max_ratio,ratio)
+            result_img_list.append((img_info[0], rotated))
+    return result_img_list
+
+
+def set_result_with_confidence(results):
+    """ Select highest confidence augmentation for TTA
+    Given a list of lists of results (outer list has one list per augmentation,
+    inner lists index the images being recognized), choose the best result 
+    according to confidence level.
+    Each "result" is of the form (box coords, text, confidence)
+    A final_result is returned which contains one result for each image
+    """
+    final_result = []
+    for col_ix in range(len(results[0])):
+        # Take the row_ix associated with the max confidence
+        best_row = max(
+            [(row_ix, results[row_ix][col_ix][2]) for row_ix in range(len(results))],
+            key=lambda x: x[1])[0]
+        final_result.append(results[best_row][col_ix])
+
+    return final_result
