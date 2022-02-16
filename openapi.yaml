@@ -19,7 +19,7 @@ servers:
   - url: 'https://easyocrgpu-wook-2.endpoint.ainize.ai'
 
 paths:
-  /word_extraction:
+  /analyze:
     post:
       tags:
       - TextReader
