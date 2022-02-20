@@ -1,15 +1,13 @@
 version: "3.9"
 services:
   ocr:
-    tty: true
-    pull_policy: always
     image: astrocket/easy-ocr:latest
+    pull_policy: always
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
               capabilities: [ gpu ]
     ports:
       - "8000:8000"
