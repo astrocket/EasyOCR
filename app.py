@@ -39,20 +39,18 @@ def upload_file():
     print(lang)
     file = np.array(PIL.Image.open(request.files['file']).convert("RGB"))
     reader = easyocr.Reader(['ko'], gpu=True, recog_network="korean", user_network_directory="user_network", model_storage_directory="model", download_enabled=False)
-    result = reader.readtext(file)
-    logger.debug(result)
+    sections = reader.readtext(file)
+    logger.debug(sections)
 
-    res_list = list()
+    result = list()
+    for section in sections:
+        temp = dict()
+        temp['points'] = section[0]
+        temp['name'] = section[1]
+        temp['probability'] = section[2]
+        result.append(temp)
 
-    for i in result:
-        res_list.append(i[1])
-
-    res_str = ''
-
-    for i in res_list:
-        res_str = res_str + ' ' + i
-
-    return jsonify({ "result": res_str }), 200
+    return jsonify({ "result": json.dumps(result, ensure_ascii=False) }), 200
 
 @app.route('/health', methods=['GET'])
 def checkHealth():
