@@ -51,7 +51,7 @@ def upload_file():
         temp['probability'] = section[2]
         result.append(temp)
 
-    return jsonify({ "result": json.dumps(result, ensure_ascii=False) }), 200
+    return json.dumps(result, ensure_ascii=False), 200
 
 @app.route('/health', methods=['GET'])
 def checkHealth():
