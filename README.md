@@ -1,4 +1,9 @@
-https://davelogs.tistory.com/94
+[easy ocr 관련 블로그](https://davelogs.tistory.com/94)
+---
+[cuda 활성화된 ubuntu 설치](https://wolfzone.tistory.com/31)
+[ubuntu 20에 cuda 드라이버 설치](https://linuxconfig.org/how-to-install-cuda-on-ubuntu-20-04-focal-fossa-linux)
+[ubuntu 20에 docker 설치](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04)
+
 
 # EasyOCR
 
