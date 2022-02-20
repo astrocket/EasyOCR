@@ -1,5 +1,5 @@
 torch
-torchvision>=0.5
+torchvision
 opencv-python-headless<=4.5.4.60
 scipy
 numpy
@@ -7,3 +7,9 @@ Pillow
 scikit-image
 python-bidi
 PyYAML
+easyocr
+flask
+flask_limiter
+image
+pillow
+waitress

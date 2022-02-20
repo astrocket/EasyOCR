@@ -1,40 +1,69 @@
 import os
-from flask import Flask, request, redirect, render_template, jsonify
-import easyocr
-import PIL
-from PIL import Image, ImageOps
-import base64
-import numpy as np
 import io
+import PIL
+import base64
+import logging
+import traceback
+import easyocr
+import numpy as np
+from PIL import Image, ImageOps
+from time import strftime
+from flask import Flask, request, redirect, render_template, jsonify
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from waitress import serve
+from logging.handlers import RotatingFileHandler
 
 app = Flask(__name__, template_folder='templates')
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024*5
+limiter = Limiter(
+    app,
+    key_func=get_remote_address,
+    default_limits=["5/second"]
+)
 
 # Web server
-@app.route('/', methods=['GET', 'POST'])
-@app.route('/index', methods=['GET', 'POST'])
-def upload_file():
-    if request.method == 'POST':
-        if 'file' not in request.files:
-            print('no file')
-            return redirect(request.url)
-
-        lang = str(request.form['lang'])
-        file = np.array(PIL.Image.open(request.files['file']).convert("RGB"))
-        reader = easyocr.Reader(['ko'], gpu=True, recog_network="korean", user_network_directory="user_network", model_storage_directory="model", download_enabled=False)
-        response = reader.readtext(file)
-
-        return jsonify(response)
+@app.route('/', methods=['GET'])
+def index():
     return render_template('index.html')
+
+@app.route('/analyze', methods=['POST'])
+@limiter.limit("1/second", override_defaults=False)
+def upload_file():
+    if 'file' not in request.files:
+        print('no file')
+        return redirect(request.url)
+
+    lang = str(request.form['lang'])
+    print(lang)
+    file = np.array(PIL.Image.open(request.files['file']).convert("RGB"))
+    reader = easyocr.Reader(['ko'], gpu=True, recog_network="korean", user_network_directory="user_network", model_storage_directory="model", download_enabled=False)
+    response = reader.readtext(file)
+
+    return jsonify(response)
 
 @app.route('/health', methods=['GET'])
 def checkHealth():
-	return "Pong",200
+	return jsonify({ "env": os.environ['FLASK_ENV'] }), 200
 
-@app.errorhandler(413)
-def request_entity_too_large(error):
-    return render_template('index.html', result = 'The image size is too large'), 413
+@app.after_request
+def after_request(response):
+    timestamp = strftime('[%Y-%b-%d %H:%M]')
+    logger.debug('%s %s %s %s %s %s', timestamp, request.remote_addr, request.method, request.scheme, request.full_path, response.status)
+    return response
 
+@app.errorhandler(Exception)
+def exceptions(e):
+    tb = traceback.format_exc()
+    timestamp = strftime('[%Y-%b-%d %H:%M]')
+    logger.error('%s %s %s %s %s 5xx INTERNAL SERVER ERROR\n%s', timestamp, request.remote_addr, request.method, request.scheme, request.full_path, tb)
+    return 500
+
+# https://gist.github.com/alexaleluia12/e40f1dfa4ce598c2e958611f67d28966
 if __name__ == '__main__':
-    app.run(debug=True, port=8000, host='0.0.0.0', threaded=True)
+    handler = RotatingFileHandler('app.log', maxBytes=100000, backupCount=3)
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+    serve(app, host="0.0.0.0", port=8000)

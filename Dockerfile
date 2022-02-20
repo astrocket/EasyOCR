@@ -14,13 +14,12 @@ RUN apt-get update -y && \
     && apt-get clean -y \
     && rm -rf /var/lib/apt/li
 
-RUN pip install opencv-contrib-python-headless \
-    easyocr \
+RUN pip install easyocr \
     flask \
     flask_limiter \
     image \
     pillow \
-    git+git://github.com/jaidedai/easyocr.git
+    waitress
 
 ENV ROOT $HOME/.EasyOCR
 RUN mkdir $ROOT
