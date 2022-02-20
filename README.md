@@ -1,10 +1,72 @@
-[easy ocr 관련 블로그](https://davelogs.tistory.com/94)
+# Easy OCR
+
+[easy ocr 학습 관련 블로그](https://davelogs.tistory.com/94)
 ---
 [cuda 활성화된 ubuntu 설치](https://wolfzone.tistory.com/31)
 [ubuntu 20에 cuda 드라이버 설치](https://linuxconfig.org/how-to-install-cuda-on-ubuntu-20-04-focal-fossa-linux)
 [ubuntu 20에 docker 설치](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04)
 
+### nvidia driver 설치
+https://codechacha.com/ko/install-nvidia-driver-ubuntu/
 
+```bash
+sudo apt install -y ubuntu-drivers-common
+```
+
+> recommend 로 나오는 드라이버 확인
+```bash
+ubuntu-drivers devices
+```
+
+```bash
+sudo add-apt-repository ppa:graphics-drivers/ppa
+sudo apt update
+```
+
+> 418 대신 위에서 확인한 드라이버 이름
+```bash
+apt-cache search nvidia | grep nvidia-driver-418
+sudo apt-get install nvidia-driver-418
+```
+
+```bash
+sudo reboot
+```
+
+### cuda toolkit 설치
+https://linuxconfig.org/how-to-install-cuda-on-ubuntu-20-04-focal-fossa-linux
+
+```bash
+sudo apt update
+sudo apt install nvidia-cuda-toolkit
+```
+
+```bash
+nvcc --version
+```
+
+### docker, docker-compose 설치
+[ubuntu 20에 docker 설치](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04)
+
+```bash
+sudo apt update
+sudo apt install apt-transport-https ca-certificates curl software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+apt-cache policy docker-ce
+sudo apt install docker-ce
+sudo systemctl status docker
+sudo usermod -aG docker ${USER}
+```
+
+```bash
+sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+docker-compose --version
+```
+
+
+---
 # EasyOCR
 
 [![PyPI Status](https://badge.fury.io/py/easyocr.svg)](https://badge.fury.io/py/easyocr)
