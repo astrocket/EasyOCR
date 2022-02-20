@@ -4,6 +4,11 @@ services:
     tty: true
     pull_policy: always
     image: astrocket/easy-ocr:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
     ports:
       - "8000:8000"
     environment:
