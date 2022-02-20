@@ -3,10 +3,8 @@ services:
   ocr:
     tty: true
     pull_policy: build
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: astrocket/easy-ocr:latest
     ports:
       - "8000:8000"
     environment:
-      - FLASK_ENV=development
+      - FLASK_ENV=production
