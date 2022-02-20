@@ -39,9 +39,9 @@ def upload_file():
     print(lang)
     file = np.array(PIL.Image.open(request.files['file']).convert("RGB"))
     reader = easyocr.Reader(['ko'], gpu=True, recog_network="korean", user_network_directory="user_network", model_storage_directory="model", download_enabled=False)
-    response = reader.readtext(file)
+    result = reader.readtext(file)
 
-    return jsonify(response)
+    return jsonify({ "result": result }), 200
 
 @app.route('/health', methods=['GET'])
 def checkHealth():
