@@ -8,7 +8,7 @@ import easyocr
 import numpy as np
 from PIL import Image, ImageOps
 from time import strftime
-from flask import Flask, request, redirect, render_template, jsonify
+from flask import Flask, request, redirect, render_template, jsonify, send_from_directory
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from waitress import serve
@@ -40,12 +40,29 @@ def upload_file():
     file = np.array(PIL.Image.open(request.files['file']).convert("RGB"))
     reader = easyocr.Reader(['ko'], gpu=True, recog_network="korean", user_network_directory="user_network", model_storage_directory="model", download_enabled=False)
     result = reader.readtext(file)
+    logger.debug(result)
 
-    return jsonify({ "result": result }), 200
+    text = reader.readtext(imgFile)
+    res_list = list()
+
+    for i in text:
+        res_list.append(i[1])
+
+    res_str = ''
+
+    for i in res_list:
+        res_str = res_str + ' ' + i
+
+    return jsonify({ "result": res_str }), 200
 
 @app.route('/health', methods=['GET'])
 def checkHealth():
 	return jsonify({ "env": os.environ['FLASK_ENV'] }), 200
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 @app.after_request
 def after_request(response):
