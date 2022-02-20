@@ -22,8 +22,7 @@ RUN pip install opencv-contrib-python-headless \
     pillow \
     git+git://github.com/jaidedai/easyocr.git
 
-ENV ROOT /app
-
+ENV ROOT $HOME/.EasyOCR
 RUN mkdir $ROOT
 WORKDIR $ROOT
 

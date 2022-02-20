@@ -1,9 +1,0 @@
-FROM locustio/locust:1.1.1
-RUN python3 -m pip install faker
-ADD locustfile.py locustfile.py
-
-# Input TARGET_URL
-ARG TARGET_URL
-ENV TARGET_URL $TARGET_URL
-
-EXPOSE 8089

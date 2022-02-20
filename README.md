@@ -1,3 +1,5 @@
+https://davelogs.tistory.com/94
+
 # EasyOCR
 
 [![PyPI Status](https://badge.fury.io/py/easyocr.svg)](https://badge.fury.io/py/easyocr)
