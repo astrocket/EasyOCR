@@ -42,10 +42,9 @@ def upload_file():
     result = reader.readtext(file)
     logger.debug(result)
 
-    text = reader.readtext(imgFile)
     res_list = list()
 
-    for i in text:
+    for i in result:
         res_list.append(i[1])
 
     res_str = ''
