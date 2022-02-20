@@ -15,6 +15,7 @@ RUN apt-get update -y && \
     && rm -rf /var/lib/apt/li
 
 RUN pip install easyocr \
+    opencv-contrib-python-headless \
     flask \
     flask_limiter \
     image \
