@@ -30,7 +30,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/analyze', methods=['POST'])
-@limiter.limit("1/second", override_defaults=False)
+@limiter.limit("10/second", override_defaults=False)
 def upload_file():
     if 'file' not in request.files:
         print('no file')
@@ -39,7 +39,7 @@ def upload_file():
     lang = str(request.form['lang'])
     print(lang)
     file = np.array(PIL.Image.open(request.files['file']).convert("RGB"))
-    reader = easyocr.Reader(['ko'], gpu=True, recog_network="korean", user_network_directory="user_network", model_storage_directory="model", download_enabled=False)
+    reader = easyocr.Reader(['ko', 'en'], gpu=True, recog_network="korean", user_network_directory="user_network", model_storage_directory="model", download_enabled=False)
     sections = reader.readtext(file)
     logger.debug(sections)
 

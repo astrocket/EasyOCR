@@ -1,5 +1,5 @@
 imgH: 32
-lang_list: ['ko']
+lang_list: ['ko', 'en']
 network_params:
   input_channel: 1
   output_channel: 256
