@@ -24,12 +24,6 @@ limiter = Limiter(
     default_limits=["5/second"]
 )
 
-class NumpyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
-
 # Web server
 @app.route('/', methods=['GET'])
 def index():
@@ -52,14 +46,18 @@ def upload_file():
     result = list()
     for section in sections:
         temp = dict()
-        temp['points'] = section[0]
+        points = list()
+        for point in section[0]:
+            int_point = list([int(x) for x in point])
+            points.append(int_point)
+        temp['points'] = points
         temp['name'] = section[1]
-        temp['probability'] = section[2]
+        temp['probability'] = float(section[2])
         result.append(temp)
-    logger.debug(result)
-    jsonObj = json.dumps(result, cls=NumpyEncoder)
-    logger.debug(jsonObj)
-    return jsonify({ "result": jsonObj }), 200
+
+    jsonObj = json.dumps(result, ensure_ascii=False)
+
+    return jsonify(result)
 
 @app.route('/health', methods=['GET'])
 def checkHealth():
