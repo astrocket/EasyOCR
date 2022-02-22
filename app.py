@@ -39,7 +39,6 @@ def upload_file():
     lang = str(request.form['lang'])
     print(lang)
     file = np.array(PIL.Image.open(request.files['file']).convert("RGB"))
-    reader = easyocr.Reader(['ko', 'en'], gpu=True, recog_network="korean", user_network_directory="user_network", model_storage_directory="model", download_enabled=False)
     sections = reader.readtext(file)
     logger.debug(sections)
 
@@ -87,4 +86,5 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     logger.addHandler(handler)
+    reader = easyocr.Reader(['ko', 'en'], gpu=True, recog_network="korean", user_network_directory="user_network", model_storage_directory="model", download_enabled=False)
     serve(app, host="0.0.0.0", port=8000)
