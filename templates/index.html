@@ -36,7 +36,14 @@
         <div id='inputImage' style="float:left;width: 50%;">
             <h2>Upload </h2>
             <form action="/analyze" method="post" enctype="multipart/form-data" onsubmit="click_submit()">
-                <p>Import Image:<br><input type=file onchange="onFileSelected(event)" name=file</p>
+                <div>
+                    <h4>Image File</h4>
+                    <input type=file onchange="onFileSelected(event)" name="file">
+                </div>
+                <div>
+                    <h4>Image URL</h4>
+                    <input type="text" name="image_url">
+                </div>
                     <br><br>Choose Language:<br>
                     <select name="lang">
                         <option value="eng">English</option>

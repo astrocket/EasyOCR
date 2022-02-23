@@ -4,11 +4,14 @@ import PIL
 import json
 import base64
 import logging
+import requests
 import traceback
 import easyocr
 import numpy as np
 from PIL import Image
+from io import BytesIO
 from time import strftime
+from urllib.parse import urlparse
 from flask import Flask, request, render_template, jsonify, send_from_directory
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -39,6 +42,13 @@ reader = easyocr.Reader(
     user_network_directory="user_network"
 )
 
+def uri_validator(x):
+    try:
+        result = urlparse(x)
+        return all([result.scheme, result.netloc])
+    except:
+        return False
+
 @app.before_request
 def verify_authorization():
     if API_TOKEN != None and API_TOKEN != request.headers.get('Authorization'):
@@ -51,12 +61,16 @@ def index():
 @app.route('/analyze', methods=['POST'])
 @limiter.limit("5/second", override_defaults=False)
 def upload_file():
-    if 'file' not in request.files:
-        return jsonify({ "message": "file doesn't exist" }), 400
+    image_url = request.form.get('image_url')
+    if image_url and uri_validator(image_url):
+        file_io = requests.get(image_url).raw
+    elif 'file' in request.files:
+        file_io = request.files['file']
+    else:
+        return jsonify({ "message": "analyzable source doesn't exist" }), 400
 
-    lang = str(request.form['lang'])
-    file = np.array(PIL.Image.open(request.files['file']).convert("RGB"))
     sections = reader.readtext(file)
+    file = np.array(Image.open(file_io).convert("RGB"))
 
     result = list()
     for section in sections:
