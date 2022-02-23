@@ -7,4 +7,5 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - FLASK_ENV=production
+      - FLASK_ENV=development
+      - API_TOKEN=${API_TOKEN}

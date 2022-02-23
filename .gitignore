@@ -108,3 +108,4 @@ ENV/
 .vs/
 .idea/
 app.log
+.env

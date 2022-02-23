@@ -61,11 +61,22 @@ sudo chmod +x /usr/local/bin/docker-compose
 docker-compose --version
 ```
 
+### set .env
+
+```bash
+touch .env
+```
+
+> .env
+```bash
+API_TOKEN=password
+```
+
 ### start serving
 
 > local
 ```bash
-docker-compose -f docker-compose.local.yml up -d
+docker-compose -f docker-compose.local.yml up --build
 ```
 
 > production

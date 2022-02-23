@@ -7,17 +7,20 @@ import logging
 import traceback
 import easyocr
 import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image
 from time import strftime
-from flask import Flask, request, redirect, render_template, jsonify, send_from_directory
+from flask import Flask, request, render_template, jsonify, send_from_directory
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from waitress import serve
 from logging.handlers import RotatingFileHandler
 
+FLASK_ENV = os.environ.get('FLASK_ENV')
+API_TOKEN = os.environ.get('API_TOKEN')
+
 app = Flask(__name__, template_folder='templates')
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
-app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024*5
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 15
 limiter = Limiter(
     app,
     key_func=get_remote_address,
@@ -27,7 +30,19 @@ handler = RotatingFileHandler('app.log', maxBytes=100000, backupCount=3)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(handler)
-reader = easyocr.Reader(['ko', 'en'], gpu=True, recog_network="korean", user_network_directory="user_network", model_storage_directory="model", download_enabled=False)
+reader = easyocr.Reader(
+    ['ko', 'en'],
+    gpu=True,
+    download_enabled=False,
+    recog_network="korean",
+    model_storage_directory="model",
+    user_network_directory="user_network"
+)
+
+@app.before_request
+def verify_authorization():
+    if API_TOKEN != None and API_TOKEN != request.headers.get('Authorization'):
+        return jsonify({ "message": "authorization failed" }), 401
 
 @app.route('/', methods=['GET'])
 def index():
@@ -42,7 +57,6 @@ def upload_file():
     lang = str(request.form['lang'])
     file = np.array(PIL.Image.open(request.files['file']).convert("RGB"))
     sections = reader.readtext(file)
-    logger.debug(sections)
 
     result = list()
     for section in sections:
@@ -58,11 +72,11 @@ def upload_file():
 
     jsonObj = json.dumps(result, ensure_ascii=False)
 
-    return jsonify(result)
+    return jsonify(result), 200
 
 @app.route('/health', methods=['GET'])
 def checkHealth():
-	return jsonify({ "env": os.environ['FLASK_ENV'] }), 200
+	return jsonify({ "env": FLASK_ENV }), 200
 
 @app.route('/favicon.ico')
 def favicon():
