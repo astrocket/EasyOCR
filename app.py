@@ -21,23 +21,25 @@ app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024*5
 limiter = Limiter(
     app,
     key_func=get_remote_address,
-    default_limits=["5/second"]
+    default_limits=["10/second"]
 )
+handler = RotatingFileHandler('app.log', maxBytes=100000, backupCount=3)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addHandler(handler)
+reader = easyocr.Reader(['ko', 'en'], gpu=True, recog_network="korean", user_network_directory="user_network", model_storage_directory="model", download_enabled=False)
 
-# Web server
 @app.route('/', methods=['GET'])
 def index():
     return render_template('index.html')
 
 @app.route('/analyze', methods=['POST'])
-@limiter.limit("10/second", override_defaults=False)
+@limiter.limit("5/second", override_defaults=False)
 def upload_file():
     if 'file' not in request.files:
-        print('no file')
-        return redirect(request.url)
+        return jsonify({ "message": "file doesn't exist" }), 400
 
     lang = str(request.form['lang'])
-    print(lang)
     file = np.array(PIL.Image.open(request.files['file']).convert("RGB"))
     sections = reader.readtext(file)
     logger.debug(sections)
@@ -82,9 +84,4 @@ def exceptions(e):
 
 # https://gist.github.com/alexaleluia12/e40f1dfa4ce598c2e958611f67d28966
 if __name__ == '__main__':
-    handler = RotatingFileHandler('app.log', maxBytes=100000, backupCount=3)
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(handler)
-    reader = easyocr.Reader(['ko', 'en'], gpu=True, recog_network="korean", user_network_directory="user_network", model_storage_directory="model", download_enabled=False)
     serve(app, host="0.0.0.0", port=8000)
