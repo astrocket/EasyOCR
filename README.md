@@ -63,6 +63,12 @@ docker-compose --version
 
 ### start serving
 
+> local
+```bash
+docker-compose -f docker-compose.local.yml up -d
+```
+
+> production
 ```bash
 docker-compose up -d
 ```
