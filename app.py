@@ -69,8 +69,8 @@ def upload_file():
     else:
         return jsonify({ "message": "analyzable source doesn't exist" }), 400
 
-    sections = reader.readtext(file)
     file = np.array(Image.open(file_io).convert("RGB"))
+    sections = reader.readtext(file)
 
     result = list()
     for section in sections:
