@@ -63,7 +63,7 @@ def index():
 def upload_file():
     image_url = request.json.get('image_url')
     if image_url and uri_validator(image_url):
-        file_io = requests.get(image_url).raw
+        file_io = BytesIO(requests.get(image_url).content)
     elif 'file' in request.files:
         file_io = request.files['file']
     else:
@@ -94,23 +94,39 @@ def checkHealth():
 
 @app.route('/favicon.ico')
 def favicon():
-    return send_from_directory(os.path.join(app.root_path, 'static'),
-                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
+    return send_from_directory(
+            os.path.join(app.root_path, 'static'),
+            'favicon.ico',
+            mimetype='image/vnd.microsoft.icon'
+           )
 
 @app.after_request
 def after_request(response):
-    timestamp = strftime('[%Y-%b-%d %H:%M]')
-    logger.debug('%s %s %s %s %s\nparams => %s', timestamp, request.remote_addr, request.method, request.scheme, request.full_path, response.status)
-    logger.debug(request.data)
+    logger.debug(
+        '%s %s %s %s %s %s\nparams : %s',
+        strftime('[%Y-%b-%d %H:%M]'),
+        request.remote_addr,
+        request.method,
+        request.scheme,
+        request.full_path,
+        response.status,
+        request.data,
+    )
     return response
 
 @app.errorhandler(Exception)
 def exceptions(e):
-    tb = traceback.format_exc()
-    timestamp = strftime('[%Y-%b-%d %H:%M]')
-    logger.error('%s %s %s %s %s 5xx INTERNAL SERVER ERROR\nparams => %s\n%s', timestamp, request.remote_addr, request.method, request.scheme, request.full_path, request.data, tb)
+    logger.error(
+        '%s %s %s %s %s 5xx INTERNAL SERVER ERROR\nparams : %s\n%s',
+        strftime('[%Y-%b-%d %H:%M]'),
+        request.remote_addr,
+        request.method,
+        request.scheme,
+        request.full_path,
+        request.data,
+        traceback.format_exc()
+    )
     return 500
 
-# https://gist.github.com/alexaleluia12/e40f1dfa4ce598c2e958611f67d28966
 if __name__ == '__main__':
     serve(app, host="0.0.0.0", port=8000)
