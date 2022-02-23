@@ -61,7 +61,7 @@ def index():
 @app.route('/analyze', methods=['POST'])
 @limiter.limit("5/second", override_defaults=False)
 def upload_file():
-    image_url = request.form.get('image_url')
+    image_url = request.json.get('image_url')
     if image_url and uri_validator(image_url):
         file_io = requests.get(image_url).raw
     elif 'file' in request.files:
@@ -100,14 +100,15 @@ def favicon():
 @app.after_request
 def after_request(response):
     timestamp = strftime('[%Y-%b-%d %H:%M]')
-    logger.debug('%s %s %s %s %s %s %s', timestamp, request.remote_addr, request.method, request.scheme, request.full_path, response.status, request.form)
+    logger.debug('%s %s %s %s %s\nparams => %s', timestamp, request.remote_addr, request.method, request.scheme, request.full_path, response.status)
+    logger.debug(request.data)
     return response
 
 @app.errorhandler(Exception)
 def exceptions(e):
     tb = traceback.format_exc()
     timestamp = strftime('[%Y-%b-%d %H:%M]')
-    logger.error('%s %s %s %s %s 5xx INTERNAL SERVER ERROR\n%s', timestamp, request.remote_addr, request.method, request.scheme, request.full_path, tb)
+    logger.error('%s %s %s %s %s 5xx INTERNAL SERVER ERROR\nparams => %s\n%s', timestamp, request.remote_addr, request.method, request.scheme, request.full_path, request.data, tb)
     return 500
 
 # https://gist.github.com/alexaleluia12/e40f1dfa4ce598c2e958611f67d28966
