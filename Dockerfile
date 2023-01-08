@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:1.10.0-cuda11.3-cudnn8-runtime
+FROM pytorch/pytorch
 
 # Configure apt and install packages
 RUN apt-get update -y && \
@@ -15,7 +15,7 @@ RUN apt-get update -y && \
     && rm -rf /var/lib/apt/li
 
 RUN pip install easyocr \
-    opencv-python-headless==4.5.4.60 \
+    opencv-python-headless \
     flask \
     flask_limiter \
     image \
